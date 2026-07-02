@@ -3,11 +3,13 @@
 import tkinter as tk
 from tkinter import ttk
 
+from automacao.apuracao import ApuracaoPanel
 from automacao.premmia import PremmiaPanel
 from automacao.santander_postos import SantanderPostosPanel
 
 MODULOS = [
     SantanderPostosPanel,
+    ApuracaoPanel,
     PremmiaPanel,
 ]
 

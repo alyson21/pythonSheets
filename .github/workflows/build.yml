@@ -34,7 +34,7 @@ jobs:
         run: printf 'VERSION = "%s"\n' "${{ github.sha }}" > automacao/_version.py
 
       - name: Compilar .exe
-        run: pyinstaller --onefile --windowed --name automacao --splash automacao/assets/factus_splash.png main.py
+        run: pyinstaller --onefile --windowed --name automacao --icon automacao/assets/factus.ico --splash automacao/assets/factus_splash.png --add-data "automacao/assets;automacao/assets" main.py
 
       - name: Publicar Release "latest"
         uses: softprops/action-gh-release@v2

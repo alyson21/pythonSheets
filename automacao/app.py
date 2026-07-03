@@ -22,6 +22,7 @@ def run():
     root.title("Factus — Automações")
     root.minsize(680, 580)
     tema.aplicar(root)
+    tema.aplicar_icone(root)
     log.instalar_tk(root)
 
     splash = tema.Splash(root)
@@ -85,13 +86,19 @@ def _montar_header(root):
     header = tk.Frame(root, bg=tema.NAVY)
     header.pack(fill="x", side="top")
 
-    cv = tk.Canvas(header, width=168, height=48, bg=tema.NAVY, highlightthickness=0)
-    cv.pack(side="left", padx=(14, 6), pady=6)
-    tema.desenhar_marca(cv, 6, 8, 32)
-    cv.create_text(50, 16, text="Factus", fill=tema.ON_NAVY, anchor="w",
-                   font=("Segoe UI", 15, "bold"))
-    cv.create_text(51, 34, text="Automações", fill=tema.MUTED, anchor="w",
-                   font=("Segoe UI", 9))
+    logo = tema.imagem("factus_header.png")
+    if logo is not None:
+        lbl = tk.Label(header, image=logo, bg=tema.NAVY)
+        lbl.image = logo  # mantém referência viva
+        lbl.pack(side="left", padx=(14, 8), pady=8)
+    else:  # fallback: marca desenhada
+        cv = tk.Canvas(header, width=168, height=48, bg=tema.NAVY, highlightthickness=0)
+        cv.pack(side="left", padx=(14, 6), pady=6)
+        tema.desenhar_marca(cv, 6, 8, 32)
+        cv.create_text(50, 16, text="Factus", fill=tema.ON_NAVY, anchor="w",
+                       font=("Segoe UI", 15, "bold"))
+        cv.create_text(51, 34, text="Automações", fill=tema.MUTED, anchor="w",
+                       font=("Segoe UI", 9))
 
     tk.Label(header, text=f"build {updater.versao_curta(updater.versao_atual())}",
              bg=tema.NAVY, fg=tema.MUTED, font=("Segoe UI", 8, "bold")).pack(

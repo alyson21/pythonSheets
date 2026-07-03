@@ -7,13 +7,66 @@ reaproveitada por tools/gerar_assets.py para gerar o PNG do splash nativo.
 
 from __future__ import annotations
 
+import sys
 import tkinter as tk
+from pathlib import Path
 from tkinter import ttk
 
+
+def _dir_assets() -> Path:
+    """Pasta de assets, tanto em dev quanto no .exe onefile (PyInstaller)."""
+    if getattr(sys, "frozen", False):
+        base = Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent))
+        return base / "automacao" / "assets"
+    return Path(__file__).resolve().parent / "assets"
+
+
+def asset(nome: str) -> Path:
+    return _dir_assets() / nome
+
+
+def imagem(nome: str) -> tk.PhotoImage | None:
+    """Carrega um PNG dos assets como PhotoImage, ou None se faltar/falhar.
+
+    Guarde a referência retornada (o Tk descarta a imagem se ela for coletada).
+    """
+    caminho = asset(nome)
+    if not caminho.exists():
+        return None
+    try:
+        return tk.PhotoImage(file=str(caminho))
+    except tk.TclError:
+        return None
+
+
+_carregar_imagem = imagem  # alias interno
+
+
+def aplicar_icone(root: tk.Tk) -> None:
+    """Define o ícone da janela e da barra de tarefas (Factus, não a pena do Tk)."""
+    try:  # Windows: agrupa na taskbar com ícone próprio, não o genérico do Python
+        import ctypes
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("Factus.Automacoes")
+    except Exception:
+        pass
+    ico = asset("factus.ico")
+    if ico.exists():
+        try:
+            root.iconbitmap(default=str(ico))  # titlebar nítida no Windows
+        except tk.TclError:
+            pass
+    img = imagem("factus_icon.png")
+    if img is not None:
+        try:
+            root.iconphoto(True, img)
+            root._icone = img  # mantém referência viva
+        except tk.TclError:
+            pass
+
 # ── paleta (extraída do logo) ────────────────────────────────────────────────
-NAVY = "#2B2F4A"       # fundo da marca
-NAVY_D = "#23273B"     # navy mais escuro (texto sobre claro / sombras)
-NAVY_L = "#3A3F63"     # navy claro (abas, hover)
+NAVY = "#232946"       # fundo da marca (igual ao PNG oficial, p/ emendar sem costura)
+NAVY_D = "#1B2038"     # navy mais escuro (texto sobre claro / sombras)
+NAVY_L = "#343B60"     # navy claro (abas, hover)
 ACCENT = "#8E9BD0"     # periwinkle do símbolo
 ACCENT_L = "#C6CEEA"   # acento claro
 LIGHT = "#D7DCEF"      # tom claro do símbolo
@@ -85,11 +138,17 @@ class Splash:
 
         cv = tk.Canvas(self.win, width=w, height=h, bg=NAVY, highlightthickness=0)
         cv.pack(fill="both", expand=True)
-        cv.create_rectangle(0, 0, w, 6, fill=ACCENT, width=0)  # faixa de acento no topo
-        desenhar_marca(cv, 66, 92, 92)
-        cv.create_text(190, 118, text="Factus", fill=ON_NAVY, anchor="w", font=WORDMARK)
-        cv.create_text(192, 158, text="Cont.", fill=MUTED, anchor="w", font=("Segoe UI", 13))
-        cv.create_text(w // 2, 214, text="Carregando…", fill=MUTED, font=("Segoe UI", 10))
+        # usa o mesmo PNG do splash nativo (deriva do logo oficial) se disponível;
+        # senão, desenha a marca vetorial como fallback.
+        self._img = _carregar_imagem("factus_splash.png")
+        if self._img is not None:
+            cv.create_image(w // 2, h // 2, image=self._img)
+        else:
+            cv.create_rectangle(0, 0, w, 6, fill=ACCENT, width=0)  # faixa de acento no topo
+            desenhar_marca(cv, 66, 92, 92)
+            cv.create_text(190, 118, text="Factus", fill=ON_NAVY, anchor="w", font=WORDMARK)
+            cv.create_text(192, 158, text="Cont.", fill=MUTED, anchor="w", font=("Segoe UI", 13))
+            cv.create_text(w // 2, 214, text="Carregando…", fill=MUTED, font=("Segoe UI", 10))
 
         self.bar = ttk.Progressbar(self.win, mode="indeterminate", length=320,
                                    style="Brand.Horizontal.TProgressbar")

@@ -48,13 +48,17 @@ Para compilar manualmente no Windows: `GerarExe.bat`.
 
 ## Identidade visual
 
-A paleta e a marca ficam em `automacao/tema.py` (símbolo desenhado por vetores,
-sem depender de arquivo de imagem). Na abertura aparece um **loading** com a
-marca Factus, e o `.exe` mostra ainda o splash nativo do PyInstaller durante a
-extração (imagem `automacao/assets/factus_splash.png`, passada em `--splash`).
+O logo oficial fica em `automacao/assets/factus_logo.png`. A partir dele,
+`tools/gerar_assets.py` deriva todos os assets (splash, cabeçalho, ícone da
+janela e `.ico` do executável). A paleta está em `automacao/tema.py`.
 
-Para regenerar o PNG do splash após mexer nas cores/marca (requer Pillow, só em
-dev): `python tools/gerar_assets.py`.
+Na abertura aparece um **loading** com a marca Factus; o `.exe` mostra ainda o
+splash nativo do PyInstaller durante a extração (`--splash`) e usa o ícone
+próprio na barra de tarefas (`--icon`).
+
+Para trocar o logo: substitua `factus_logo.png` e rode (requer Pillow, só em
+dev) `python tools/gerar_assets.py`. Sem o logo, cai numa marca vetorial de
+fallback desenhada em `automacao/tema.py`.
 
 ## Como adicionar uma nova automação
 

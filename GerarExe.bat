@@ -54,7 +54,7 @@ if "%SHA%"=="" set "SHA=dev"
 > automacao\_version.py echo VERSION = "%SHA%"
 
 echo Gerando automacao.exe...
-"%PYTHON_LAUNCHER%" %PYTHON_ARGS% -m PyInstaller --onefile --windowed --name automacao --splash automacao\assets\factus_splash.png main.py >> "%LOG%" 2>&1
+"%PYTHON_LAUNCHER%" %PYTHON_ARGS% -m PyInstaller --onefile --windowed --name automacao --icon automacao\assets\factus.ico --splash automacao\assets\factus_splash.png --add-data "automacao\assets;automacao\assets" main.py >> "%LOG%" 2>&1
 if errorlevel 1 (
     echo ERRO: falha ao compilar com PyInstaller. Veja "%LOG%".
     set "EXIT_CODE=1"

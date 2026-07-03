@@ -31,3 +31,5 @@ CURSO_DEV_JUNIOR.md
 
 # versão é gerada na compilação (commit SHA), não versionar
 automacao/_version.py
+# imagem colada solta na raiz (o logo oficial fica em automacao/assets/factus_logo.png)
+Imagem colada.png

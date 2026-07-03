@@ -5,16 +5,7 @@ import threading
 import tkinter as tk
 from tkinter import messagebox, ttk
 
-from automacao import log, updater
-from automacao.apuracao import ApuracaoPanel
-from automacao.premmia import PremmiaPanel
-from automacao.santander_postos import SantanderPostosPanel
-
-MODULOS = [
-    SantanderPostosPanel,
-    ApuracaoPanel,
-    PremmiaPanel,
-]
+from automacao import log, tema, updater
 
 # tempo máximo, em ms, para a verificação de atualização antes de destravar o botão
 TIMEOUT_VERIFICACAO_MS = 30000
@@ -27,36 +18,90 @@ def run():
         updater.marcar_boot_ok()
 
     root = tk.Tk()
-    root.title("Automação")
-    root.minsize(660, 560)
+    root.withdraw()  # esconde até a UI estar montada; só a splash aparece
+    root.title("Factus — Automações")
+    root.minsize(680, 580)
+    tema.aplicar(root)
     log.instalar_tk(root)
-    logger.info("App iniciado (build %s)", updater.versao_curta(updater.versao_atual()))
 
-    _montar_header(root)
+    splash = tema.Splash(root)
+    # fecha o splash nativo do PyInstaller (mostrado durante a extração do onefile)
+    try:
+        import pyi_splash
+        pyi_splash.close()
+    except Exception:
+        pass
 
-    notebook = ttk.Notebook(root)
-    notebook.pack(fill="both", expand=True)
-
-    for ModuloPanel in MODULOS:
-        panel = ModuloPanel(notebook)
-        notebook.add(panel, text=ModuloPanel.NOME)
-
+    # os imports pesados (openpyxl, via painéis) só acontecem depois que a splash
+    # já está na tela, para o carregamento não parecer travado.
+    root.after(30, lambda: _construir(root, splash, logger))
     root.mainloop()
 
 
-# ── header com versão + botão Atualizar ──────────────────────────────────────
+def _construir(root, splash, logger):
+    """Importa os painéis fora da main thread (splash segue animando) e, ao
+    terminar, monta a interface na main thread via `after`."""
+
+    def _carregar():
+        try:
+            from automacao.apuracao import ApuracaoPanel
+            from automacao.premmia import PremmiaPanel
+            from automacao.santander_postos import SantanderPostosPanel
+            classes = (SantanderPostosPanel, ApuracaoPanel, PremmiaPanel)
+        except Exception:
+            logger.exception("Falha ao carregar os módulos")
+            root.after(0, lambda: _falha_carregar(root, splash))
+            return
+        root.after(0, lambda: _montar_ui(root, splash, logger, classes))
+
+    threading.Thread(target=_carregar, daemon=True).start()
+
+
+def _montar_ui(root, splash, logger, classes):
+    _montar_header(root)
+    notebook = ttk.Notebook(root)
+    notebook.pack(fill="both", expand=True)
+    for ModuloPanel in classes:
+        panel = ModuloPanel(notebook)
+        notebook.add(panel, text=ModuloPanel.NOME)
+
+    logger.info("App iniciado (build %s)", updater.versao_curta(updater.versao_atual()))
+    splash.fechar()
+    root.deiconify()
+
+
+def _falha_carregar(root, splash):
+    splash.fechar()
+    root.deiconify()
+    messagebox.showerror(
+        "Erro ao iniciar",
+        f"Não foi possível carregar os módulos.\n\nDetalhes em:\n{log.caminho_log()}")
+    root.destroy()
+
+
+# ── header com marca + versão + botão Atualizar ──────────────────────────────
 
 def _montar_header(root):
-    header = tk.Frame(root, bd=1, relief="groove")
+    header = tk.Frame(root, bg=tema.NAVY)
     header.pack(fill="x", side="top")
 
-    tk.Label(header, text="Automação Factus", font=("", 11, "bold")).pack(
-        side="left", padx=10, pady=6)
-    tk.Label(header, text=f"build {updater.versao_curta(updater.versao_atual())}",
-             fg="#555", font=("", 9, "bold")).pack(side="left", pady=6)
+    cv = tk.Canvas(header, width=168, height=48, bg=tema.NAVY, highlightthickness=0)
+    cv.pack(side="left", padx=(14, 6), pady=6)
+    tema.desenhar_marca(cv, 6, 8, 32)
+    cv.create_text(50, 16, text="Factus", fill=tema.ON_NAVY, anchor="w",
+                   font=("Segoe UI", 15, "bold"))
+    cv.create_text(51, 34, text="Automações", fill=tema.MUTED, anchor="w",
+                   font=("Segoe UI", 9))
 
-    btn = tk.Button(header, text="⟳  Atualizar")
-    btn.pack(side="right", padx=10, pady=6)
+    tk.Label(header, text=f"build {updater.versao_curta(updater.versao_atual())}",
+             bg=tema.NAVY, fg=tema.MUTED, font=("Segoe UI", 8, "bold")).pack(
+        side="left", padx=8)
+
+    btn = tk.Button(header, text="⟳  Atualizar", relief="flat", bd=0, cursor="hand2",
+                    bg=tema.NAVY_L, fg=tema.ON_NAVY, activebackground=tema.ACCENT,
+                    activeforeground=tema.NAVY_D, padx=14, pady=6,
+                    font=("Segoe UI", 9, "bold"))
+    btn.pack(side="right", padx=12, pady=8)
     # mantém o gerenciador vivo (evita coleta de lixo) e liga o botão
     root._atualizador = _Atualizador(root, btn)
     btn.configure(command=root._atualizador.iniciar)
@@ -150,7 +195,8 @@ class _Atualizador:
         self.win.transient(self.root)
         self.win.resizable(False, False)
         tk.Label(self.win, text="Baixando atualização...").pack(padx=20, pady=(16, 6))
-        self.barra = ttk.Progressbar(self.win, length=280, mode="determinate", maximum=1.0)
+        self.barra = ttk.Progressbar(self.win, length=280, mode="determinate", maximum=1.0,
+                                     style="Brand.Horizontal.TProgressbar")
         self.barra.pack(padx=20, pady=(0, 16))
         self.fila_dl = queue.Queue()
 

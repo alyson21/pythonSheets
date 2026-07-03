@@ -25,7 +25,7 @@ API_RELEASE = f"https://api.github.com/repos/{REPO}/releases/tags/latest"
 EXE_ASSET = "automacao.exe"
 NOVO_EXE = "automacao.new.exe"
 BAT_UPDATE = "_update.bat"
-TIMEOUT = 20
+TIMEOUT = 15
 _HEADERS = {"User-Agent": "automacao-updater", "Accept": "application/vnd.github+json"}
 
 

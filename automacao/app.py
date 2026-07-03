@@ -68,7 +68,17 @@ def _montar_ui(root, splash, logger, classes):
 
     logger.info("App iniciado (build %s)", updater.versao_curta(updater.versao_atual()))
     splash.fechar()
+    _trazer_para_frente(root)
+
+
+def _trazer_para_frente(root):
+    """Mostra a janela em primeiro plano e com foco (senão o Windows a deixa atrás)."""
     root.deiconify()
+    root.lift()
+    root.focus_force()
+    # o toggle de -topmost força o Windows a trazer a janela para frente
+    root.attributes("-topmost", True)
+    root.after(300, lambda: root.attributes("-topmost", False))
 
 
 def _falha_carregar(root, splash):

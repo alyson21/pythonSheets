@@ -14,11 +14,29 @@ ligada de propósito (um updater que baixa e executa .exe não pode aceitar MITM
 from __future__ import annotations
 
 import json
+import ssl
 import subprocess
 import sys
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
+
+
+def _ssl_context() -> ssl.SSLContext:
+    """Contexto TLS com CA bundle confiável.
+
+    No .exe (PyInstaller) o Python não acha a store de certificados do Windows,
+    o que gera 'unable to get local issuer certificate'. O `certifi` embute um
+    cacert.pem e o PyInstaller o inclui automaticamente ao importá-lo.
+    """
+    try:
+        import certifi
+        return ssl.create_default_context(cafile=certifi.where())
+    except Exception:
+        return ssl.create_default_context()
+
+
+_SSL = _ssl_context()
 
 REPO = "alyson21/pythonSheets"
 API_RELEASE = f"https://api.github.com/repos/{REPO}/releases/tags/latest"
@@ -55,7 +73,7 @@ def versao_curta(v: str) -> str:
 
 def _get_json(url: str) -> dict:
     req = urllib.request.Request(url, headers=_HEADERS)
-    with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
+    with urllib.request.urlopen(req, timeout=TIMEOUT, context=_SSL) as resp:
         return json.loads(resp.read().decode("utf-8"))
 
 
@@ -84,7 +102,7 @@ def ha_atualizacao() -> tuple[bool, ReleaseInfo | None]:
 def baixar_exe(url: str, destino: Path, progresso=None) -> None:
     """Baixa o .exe para `destino`. `progresso` recebe fração 0..1 (opcional)."""
     req = urllib.request.Request(url, headers={"User-Agent": "automacao-updater"})
-    with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
+    with urllib.request.urlopen(req, timeout=TIMEOUT, context=_SSL) as resp:
         total = int(resp.headers.get("Content-Length", 0))
         baixado = 0
         with open(destino, "wb") as fh:

@@ -14,12 +14,26 @@ ligada de propósito (um updater que baixa e executa .exe não pode aceitar MITM
 from __future__ import annotations
 
 import json
+import os
 import ssl
 import subprocess
 import sys
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
+
+
+def _env_sem_pyinstaller() -> dict:
+    """Ambiente sem as variáveis internas do PyInstaller onefile.
+
+    O bootloader do exe atual define `_MEIPASS2`/`_PYI_*` apontando para a pasta
+    temporária de extração dele. Se o processo filho (o .bat que reinicia o app)
+    herdar essas variáveis, o exe novo acha que já foi extraído e tenta usar a
+    pasta do processo antigo — que já foi apagada — resultando em
+    'Failed to load Python DLL'. Por isso removemos essas chaves antes de lançar.
+    """
+    return {k: v for k, v in os.environ.items()
+            if not k.startswith(("_MEIPASS", "_PYI", "_PYINSTALLER"))}
 
 
 def _ssl_context() -> ssl.SSLContext:
@@ -111,12 +125,19 @@ def ha_atualizacao() -> tuple[bool, ReleaseInfo | None]:
 
 
 def baixar_exe(url: str, destino: Path, progresso=None) -> None:
-    """Baixa o .exe para `destino`. `progresso` recebe fração 0..1 (opcional)."""
+    """Baixa o .exe para `destino`, validando a integridade.
+
+    Baixa para um arquivo `.part`, confere que veio inteiro (tamanho declarado)
+    e que é mesmo um executável (cabeçalho 'MZ'), e só então promove para
+    `destino`. Assim um download truncado nunca vira o exe trocado pelo .bat
+    (o que dá 'Failed to load Python DLL' ao abrir).
+    """
+    parcial = destino.with_name(destino.name + ".part")
     req = urllib.request.Request(url, headers={"User-Agent": "automacao-updater"})
     with urllib.request.urlopen(req, timeout=TIMEOUT, context=_SSL) as resp:
         total = int(resp.headers.get("Content-Length", 0))
         baixado = 0
-        with open(destino, "wb") as fh:
+        with open(parcial, "wb") as fh:
             while True:
                 chunk = resp.read(65536)
                 if not chunk:
@@ -125,6 +146,16 @@ def baixar_exe(url: str, destino: Path, progresso=None) -> None:
                 baixado += len(chunk)
                 if progresso and total:
                     progresso(baixado / total)
+
+    if total and baixado != total:
+        parcial.unlink(missing_ok=True)
+        raise IOError(f"download incompleto: {baixado} de {total} bytes")
+    with open(parcial, "rb") as fh:
+        if fh.read(2) != b"MZ":
+            parcial.unlink(missing_ok=True)
+            raise IOError("arquivo baixado não é um executável válido")
+
+    os.replace(parcial, destino)
     if progresso:
         progresso(1.0)
 
@@ -133,22 +164,29 @@ def aplicar_e_reiniciar(novo_exe: Path) -> None:
     """Agenda a troca do .exe (via .bat) e deixa o app fechar em seguida."""
     atual = Path(sys.executable)
     bat = atual.parent / BAT_UPDATE
+    # As linhas `set "_..."` limpam as variáveis do PyInstaller herdadas, para o
+    # exe reaberto extrair do zero (ver _env_sem_pyinstaller).
     script = (
         "@echo off\r\n"
         "setlocal\r\n"
+        'set "_MEIPASS2="\r\n'
+        'set "_PYI_APPLICATION_HOME_DIR="\r\n'
+        'set "_PYI_ARCHIVE_FILE="\r\n'
+        'set "_PYI_PARENT_PROCESS_LEVEL="\r\n'
         f'set "ALVO={atual}"\r\n'
         f'set "NOVO={novo_exe}"\r\n'
         ":wait\r\n"
         "timeout /t 1 /nobreak >nul\r\n"
         'move /y "%NOVO%" "%ALVO%" >nul 2>&1\r\n'
         "if errorlevel 1 goto wait\r\n"
+        "timeout /t 1 /nobreak >nul\r\n"
         'start "" "%ALVO%"\r\n'
         'del "%~f0"\r\n'
     )
     bat.write_text(script, encoding="ascii")
     CREATE_NO_WINDOW = 0x08000000
     subprocess.Popen(["cmd", "/c", str(bat)], creationflags=CREATE_NO_WINDOW,
-                     close_fds=True)
+                     close_fds=True, env=_env_sem_pyinstaller())
 
 
 def destino_novo_exe() -> Path:

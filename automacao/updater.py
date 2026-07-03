@@ -23,12 +23,23 @@ from pathlib import Path
 
 
 def _ssl_context() -> ssl.SSLContext:
-    """Contexto TLS com CA bundle confiável.
+    """Contexto TLS confiável mesmo com inspeção de HTTPS no Windows.
 
-    No .exe (PyInstaller) o Python não acha a store de certificados do Windows,
-    o que gera 'unable to get local issuer certificate'. O `certifi` embute um
-    cacert.pem e o PyInstaller o inclui automaticamente ao importá-lo.
+    Dois problemas aparecem no .exe (PyInstaller):
+      - Sem CA bundle o Python gera 'unable to get local issuer certificate'.
+      - Antivírus/proxy corporativo que inspeciona HTTPS re-assina o tráfego com
+        um CA raiz próprio, gerando 'self-signed certificate in certificate
+        chain' — esse CA só existe na store do Windows, não no certifi.
+
+    Por isso preferimos o `truststore`, que usa a store nativa do SO (e portanto
+    enxerga o CA da inspeção). Se indisponível, caímos no `certifi` e, por fim,
+    no contexto padrão.
     """
+    try:
+        import truststore
+        return truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    except Exception:
+        pass
     try:
         import certifi
         return ssl.create_default_context(cafile=certifi.where())

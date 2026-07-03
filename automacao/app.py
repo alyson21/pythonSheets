@@ -5,7 +5,7 @@ import threading
 import tkinter as tk
 from tkinter import messagebox, ttk
 
-from automacao import updater
+from automacao import log, updater
 from automacao.apuracao import ApuracaoPanel
 from automacao.premmia import PremmiaPanel
 from automacao.santander_postos import SantanderPostosPanel
@@ -21,9 +21,16 @@ TIMEOUT_VERIFICACAO_MS = 30000
 
 
 def run():
+    logger = log.instalar()
+    # confirma para o updater que esta versão subiu (habilita rollback se não subir)
+    if updater.modo_exe():
+        updater.marcar_boot_ok()
+
     root = tk.Tk()
     root.title("Automação")
     root.minsize(660, 560)
+    log.instalar_tk(root)
+    logger.info("App iniciado (build %s)", updater.versao_curta(updater.versao_atual()))
 
     _montar_header(root)
 

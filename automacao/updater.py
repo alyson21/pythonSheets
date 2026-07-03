@@ -68,6 +68,7 @@ API_RELEASE = f"https://api.github.com/repos/{REPO}/releases/tags/latest"
 EXE_ASSET = "automacao.exe"
 NOVO_EXE = "automacao.new.exe"
 BAT_UPDATE = "_update.bat"
+FLAG_BOOT = "update_ok.flag"   # o app cria ao subir; o updater confirma a troca por ela
 TIMEOUT = 15
 _HEADERS = {"User-Agent": "automacao-updater", "Accept": "application/vnd.github+json"}
 
@@ -160,12 +161,34 @@ def baixar_exe(url: str, destino: Path, progresso=None) -> None:
         progresso(1.0)
 
 
+def flag_boot() -> Path:
+    return Path(sys.executable).parent / FLAG_BOOT
+
+
+def marcar_boot_ok() -> None:
+    """O app chama isto ao subir; o updater usa a flag para confirmar a troca."""
+    try:
+        flag_boot().write_text("ok", encoding="ascii")
+    except Exception:
+        pass
+
+
 def aplicar_e_reiniciar(novo_exe: Path) -> None:
-    """Agenda a troca do .exe (via .bat) e deixa o app fechar em seguida."""
+    """Agenda a troca do .exe (via .bat) e deixa o app fechar em seguida.
+
+    Robustez do .bat:
+      - `set "_..."` limpa as variáveis do PyInstaller herdadas, senão o exe
+        reaberto tenta extrair da pasta temp do processo antigo (ver
+        _env_sem_pyinstaller) e falha com 'Failed to load Python DLL'.
+      - guarda um backup do exe atual antes de sobrescrever;
+      - só sobrescreve quando o app fecha (o overwrite de um exe em uso falha);
+      - reabre e espera a flag de boot; se ela não aparecer (o novo não subiu),
+        restaura o backup e reabre a versão anterior — rollback automático.
+    """
     atual = Path(sys.executable)
+    backup = atual.with_name(f"{atual.stem}.bak{atual.suffix}")
+    flag = flag_boot()
     bat = atual.parent / BAT_UPDATE
-    # As linhas `set "_..."` limpam as variáveis do PyInstaller herdadas, para o
-    # exe reaberto extrair do zero (ver _env_sem_pyinstaller).
     script = (
         "@echo off\r\n"
         "setlocal\r\n"
@@ -175,12 +198,29 @@ def aplicar_e_reiniciar(novo_exe: Path) -> None:
         'set "_PYI_PARENT_PROCESS_LEVEL="\r\n'
         f'set "ALVO={atual}"\r\n'
         f'set "NOVO={novo_exe}"\r\n'
+        f'set "BACKUP={backup}"\r\n'
+        f'set "FLAG={flag}"\r\n'
+        'copy /y "%ALVO%" "%BACKUP%" >nul 2>&1\r\n'
         ":wait\r\n"
         "timeout /t 1 /nobreak >nul\r\n"
         'move /y "%NOVO%" "%ALVO%" >nul 2>&1\r\n'
         "if errorlevel 1 goto wait\r\n"
+        'del "%FLAG%" >nul 2>&1\r\n'
         "timeout /t 1 /nobreak >nul\r\n"
         'start "" "%ALVO%"\r\n'
+        "set /a t=0\r\n"
+        ":check\r\n"
+        "timeout /t 2 /nobreak >nul\r\n"
+        'if exist "%FLAG%" goto ok\r\n'
+        "set /a t+=1\r\n"
+        "if %t% lss 10 goto check\r\n"
+        'copy /y "%BACKUP%" "%ALVO%" >nul 2>&1\r\n'
+        'del "%FLAG%" >nul 2>&1\r\n'
+        'start "" "%ALVO%"\r\n'
+        "goto fim\r\n"
+        ":ok\r\n"
+        'del "%BACKUP%" >nul 2>&1\r\n'
+        ":fim\r\n"
         'del "%~f0"\r\n'
     )
     bat.write_text(script, encoding="ascii")

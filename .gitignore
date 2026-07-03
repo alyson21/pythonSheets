@@ -23,6 +23,9 @@ dados/**
 
 automacao.exe
 automacao.new.exe
+automacao.new.exe.part
+automacao.bak.exe
+update_ok.flag
 _update.bat
 CURSO_DEV_JUNIOR.md
 

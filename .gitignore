@@ -10,7 +10,6 @@ venv/
 
 build/
 dist/
-dist-package/
 logs/
 
 # Nenhum dado de empresa deve subir: ignora tudo em dados/ exceto a estrutura de pastas
@@ -18,9 +17,6 @@ dados/**
 !dados/
 !dados/**/
 !dados/**/.gitkeep
-
-tools/nsis-deb/
-tools/nsis-local/
 
 .claude/
 .codex

@@ -1,4 +1,0 @@
-Arquivo: 7zSD.sfx
-Origem: https://github.com/ip7z/7zip/releases/download/26.00/lzma2600.7z
-Arquivo interno: bin/7zSD.sfx
-Uso: modulo SFX Windows oficial do 7-Zip/LZMA SDK.

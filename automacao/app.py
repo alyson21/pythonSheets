@@ -45,8 +45,8 @@ def _montar_header(root):
 
     tk.Label(header, text="Automação Factus", font=("", 11, "bold")).pack(
         side="left", padx=10, pady=6)
-    tk.Label(header, text=f"v {updater.versao_curta(updater.versao_atual())}",
-             fg="gray").pack(side="left")
+    tk.Label(header, text=f"build {updater.versao_curta(updater.versao_atual())}",
+             fg="#555", font=("", 9, "bold")).pack(side="left", pady=6)
 
     btn = tk.Button(header, text="⟳  Atualizar")
     btn.pack(side="right", padx=10, pady=6)

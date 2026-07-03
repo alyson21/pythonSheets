@@ -1,0 +1,42 @@
+name: build-exe
+
+# Compila o automacao.exe no Windows a cada push no main e publica na Release "latest".
+# O app baixa esse .exe quando o usuário clica em "Atualizar".
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependências
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller xlrd
+
+      - name: Gravar versão (commit SHA)
+        shell: bash
+        run: printf 'VERSION = "%s"\n' "${{ github.sha }}" > automacao/_version.py
+
+      - name: Compilar .exe
+        run: pyinstaller --onefile --windowed --name automacao main.py
+
+      - name: Publicar Release "latest"
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Última versão
+          body: ${{ github.sha }}
+          files: dist/automacao.exe

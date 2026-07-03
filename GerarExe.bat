@@ -40,12 +40,18 @@ if errorlevel 1 (
     goto :end
 )
 
-"%PYTHON_LAUNCHER%" %PYTHON_ARGS% -m pip install pyinstaller --quiet >> "%LOG%" 2>&1
+"%PYTHON_LAUNCHER%" %PYTHON_ARGS% -m pip install pyinstaller xlrd --quiet >> "%LOG%" 2>&1
 if errorlevel 1 (
     echo ERRO: falha ao instalar PyInstaller. Veja "%LOG%".
     set "EXIT_CODE=1"
     goto :end
 )
+
+echo Gravando versao...
+set "SHA="
+for /f "delims=" %%i in ('git rev-parse HEAD 2^>nul') do set "SHA=%%i"
+if "%SHA%"=="" set "SHA=dev"
+> automacao\_version.py echo VERSION = "%SHA%"
 
 echo Gerando automacao.exe...
 "%PYTHON_LAUNCHER%" %PYTHON_ARGS% -m PyInstaller --onefile --windowed --name automacao main.py >> "%LOG%" 2>&1

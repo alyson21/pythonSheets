@@ -26,4 +26,9 @@ tools/nsis-local/
 .codex
 
 automacao.exe
+automacao.new.exe
+_update.bat
 CURSO_DEV_JUNIOR.md
+
+# versão é gerada na compilação (commit SHA), não versionar
+automacao/_version.py
